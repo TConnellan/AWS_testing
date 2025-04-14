@@ -32,7 +32,7 @@ jobs:
       run: |
         # Constants
         S3_BUCKET=lambda-zips-8207-4071-9509
-        S3_KEY=testFunction-989f3b9a-b7d7-4423-be73-f2befa3d9c92
+        S3_KEY=testFunction-989f3b9a-b7d7-4423-be73-f2befa3d9c92.zip
         LAMBDA_FUNCTION_NAME=testFunction
         # Download the existing zip from S3
         aws s3 cp s3://$S3_BUCKET/$S3_KEY existing_lambda.zip
