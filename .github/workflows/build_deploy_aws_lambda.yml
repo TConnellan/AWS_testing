@@ -1,3 +1,42 @@
+name: Deploy Python Lambda
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.py'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 2 # Required to detect file changes
+
+    - name: Setup AWS CLI
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-southeast-2
+
+    - name: Get Changed Lambda Functions
+      id: detect
+      run: |
+        echo "Changed files:"
+        git diff --name-only HEAD^ HEAD
+
+        # Extract top-level directories (assumed to be Lambda function names)
+        changed_functions=$(git diff --name-only HEAD^ HEAD | grep '\.py$' | awk -F/ '{print $1}' | sort -u)
+        echo "Changed Lambda functions: $changed_functions"
+
+        # Save to GitHub Actions output
+        echo "functions=${changed_functions}" >> $GITHUB_OUTPUT
+
     - name: Deploy Changed Lambda Functions
       run: |
         S3_BUCKET=lambda-zips-8207-4071-9509
