@@ -1,42 +1,3 @@
-name: Deploy Python Lambda
-
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - '**.py'
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v2
-      with:
-        fetch-depth: 2 # Required to detect file changes
-
-    - name: Setup AWS CLI
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-southeast-2
-
-    - name: Get Changed Lambda Functions
-      id: detect
-      run: |
-        echo "Changed files:"
-        git diff --name-only HEAD^ HEAD
-
-        # Extract top-level directories (assumed to be Lambda function names)
-        changed_functions=$(git diff --name-only HEAD^ HEAD | grep '\.py$' | awk -F/ '{print $1}' | sort -u)
-        echo "Changed Lambda functions: $changed_functions"
-
-        # Save to GitHub Actions output
-        echo "functions=${changed_functions}" >> $GITHUB_OUTPUT
-
     - name: Deploy Changed Lambda Functions
       run: |
         S3_BUCKET=lambda-zips-8207-4071-9509
@@ -48,8 +9,16 @@ jobs:
           S3_KEY="${function}.zip"
           LAMBDA_FUNCTION_NAME="$function"
 
-          # Zip the whole folder for the function
-          zip -r $ZIP_NAME $function
+          # Create a temp directory for packaging
+          mkdir -p temp_lambda
+
+          # Copy contents of the lambda function folder to temp dir
+          cp -r $function/* temp_lambda/
+
+          # Zip the contents (not the folder) so the entrypoint is at the root
+          cd temp_lambda
+          zip -r ../$ZIP_NAME .
+          cd ..
 
           # Upload to S3
           aws s3 cp $ZIP_NAME s3://$S3_BUCKET/$S3_KEY
@@ -58,5 +27,6 @@ jobs:
           aws lambda update-function-code --function-name $LAMBDA_FUNCTION_NAME --s3-bucket $S3_BUCKET --s3-key $S3_KEY
 
           # Cleanup
+          rm -rf temp_lambda
           rm $ZIP_NAME
         done
